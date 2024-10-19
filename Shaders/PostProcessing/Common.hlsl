@@ -70,19 +70,78 @@ half3 ApplyVignette(half3 input, float2 uv, float2 center, float intensity, floa
     return input * lerp(color, (1.0).xxx, vfactor);
 }
 
-half3 ApplyTonemap(half3 input)
+// For GranTurismo Tonemapping
+float W_f(float x, float e0, float e1)
+{
+    if (x <= e0)
+        return 0;
+    if (x >= e1)
+        return 1;
+    float a = (x - e0) / (e1 - e0);
+    return a * a * (3 - 2 * a);
+}
+// For GranTurismo Tonemapping
+float H_f(float x, float e0, float e1)
+{
+    if (x <= e0)
+        return 0;
+    if (x >= e1)
+        return 1;
+    return (x - e0) / (e1 - e0);
+}
+// For GranTurismo Tonemapping
+float GranTurismoTonemap(float x, float P, float a, float m, float l, float c, float b)
+{
+    // float P = 1; // Maximum brightness
+    // float a = 1; // Contrast
+    // float m = 0.22; // Linear section start
+    // float l = 0.4; // Linear section length
+    // float c = 1; // Black pow
+    // float b = 0; // Black min
+    float l0 = (P - m) * l / a;
+    float L0 = m - m / a;
+    float L1 = m + (1 - m) / a;
+    float L_x = m + a * (x - m);
+    float T_x = m * pow(x / m, c) + b;
+    float S0 = m + l0;
+    float S1 = m + a * l0;
+    float C2 = a * P / (P - S1);
+    float S_x = P - (P - S1) * exp(-(C2 * (x - S0) / P));
+    float w0_x = 1 - W_f(x, 0, m);
+    float w2_x = H_f(x, m + l0, m + l0);
+    float w1_x = 1 - w0_x - w2_x;
+    float f_x = T_x * w0_x + L_x * w1_x + S_x * w2_x;
+    return f_x;
+}
+
+half3 ApplyTonemap(half3 input
+#if _TONEMAP_GT
+    , float4 tonemapParams0
+    , float4 tonemapParams1
+#endif
+)
 {
 #if _TONEMAP_ACES
     float3 aces = unity_to_ACES(input);
     input = AcesTonemap(aces);
 #elif _TONEMAP_NEUTRAL
     input = NeutralTonemap(input);
+#elif _TONEMAP_GT
+    input.r = GranTurismoTonemap(input.r, tonemapParams0.x, tonemapParams0.y, tonemapParams0.z, tonemapParams0.w, tonemapParams1.x, tonemapParams1.y);
+    input.g = GranTurismoTonemap(input.g, tonemapParams0.x, tonemapParams0.y, tonemapParams0.z, tonemapParams0.w, tonemapParams1.x, tonemapParams1.y);
+    input.b = GranTurismoTonemap(input.b, tonemapParams0.x, tonemapParams0.y, tonemapParams0.z, tonemapParams0.w, tonemapParams1.x, tonemapParams1.y);
+
 #endif
 
     return saturate(input);
 }
 
-half3 ApplyColorGrading(half3 input, float postExposure, TEXTURE2D_PARAM(lutTex, lutSampler), float3 lutParams, TEXTURE2D_PARAM(userLutTex, userLutSampler), float3 userLutParams, float userLutContrib)
+half3 ApplyColorGrading(half3 input, float postExposure, TEXTURE2D_PARAM(lutTex, lutSampler), float3 lutParams, TEXTURE2D_PARAM(userLutTex, userLutSampler), float3 userLutParams, float userLutContrib
+#if _TONEMAP_GT
+    , float4 tonemapParams0
+    , float4 tonemapParams1
+#endif
+)
 {
     // Artist request to fine tune exposure in post without affecting bloom, dof etc
     input *= postExposure;
@@ -112,7 +171,12 @@ half3 ApplyColorGrading(half3 input, float postExposure, TEXTURE2D_PARAM(lutTex,
     //   - Apply internal linear LUT
     #else
     {
+        #if _TONEMAP_GT
+        input = ApplyTonemap(input, tonemapParams0, tonemapParams1);
+        #else
         input = ApplyTonemap(input);
+        #endif
+        
 
         UNITY_BRANCH
         if (userLutContrib > 0.0)
