@@ -1301,6 +1301,12 @@ namespace UnityEngine.Rendering.Universal
                     m_ColorLookup.texture.value.height - 1f,
                     m_ColorLookup.contribution.value)
             );
+            Vector4 GTToneMapParams0 = new Vector4(m_Tonemapping.maxBrightness.value, m_Tonemapping.contrast.value, m_Tonemapping.linearSectionStart.value, m_Tonemapping.linearSectionLength.value);
+            Vector4 GTToneMapParams1 = new Vector4(m_Tonemapping.blackPow.value, m_Tonemapping.blackMin.value, 0.0f, 0.0f);
+
+            material.SetVector(ShaderConstants._GTToneMap_Params0, GTToneMapParams0);
+            material.SetVector(ShaderConstants._GTToneMap_Params1, GTToneMapParams1);
+
 
             if (hdr)
             {
@@ -1312,6 +1318,7 @@ namespace UnityEngine.Rendering.Universal
                 {
                     case TonemappingMode.Neutral: material.EnableKeyword(ShaderKeywordStrings.TonemapNeutral); break;
                     case TonemappingMode.ACES: material.EnableKeyword(ShaderKeywordStrings.TonemapACES); break;
+                    case TonemappingMode.GranTurismo: material.EnableKeyword(ShaderKeywordStrings.TonemapGT); break;
                     default: break; // None
                 }
             }
@@ -1690,7 +1697,10 @@ namespace UnityEngine.Rendering.Universal
             public static readonly int _InternalLut = Shader.PropertyToID("_InternalLut");
             public static readonly int _UserLut = Shader.PropertyToID("_UserLut");
             public static readonly int _DownSampleScaleFactor = Shader.PropertyToID("_DownSampleScaleFactor");
+            public static readonly int _GTToneMap_Params0 = Shader.PropertyToID("_GTToneMap_Params0");
+            public static readonly int _GTToneMap_Params1 = Shader.PropertyToID("_GTToneMap_Params1");
 
+            
             public static readonly int _FlareOcclusionRemapTex = Shader.PropertyToID("_FlareOcclusionRemapTex");
             public static readonly int _FlareOcclusionTex = Shader.PropertyToID("_FlareOcclusionTex");
             public static readonly int _FlareOcclusionIndex = Shader.PropertyToID("_FlareOcclusionIndex");
